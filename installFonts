@@ -1,0 +1,13 @@
+#!/usr/bin/sh
+# cp directories of fonts from <arg> to /usr/share/fonts
+
+if [ -z $1 ]; then
+  echo "Usage: $0 <path to font directories>";
+  exit 1;
+fi
+
+for d in $(find $1/* -type d);
+do
+  sudo cp -r $d /usr/share/fonts/$(basename $d);
+done
+
