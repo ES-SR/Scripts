@@ -1,5 +1,11 @@
 #!/usr/bin/zsh
 
+function checkInstallFzf () {
+  [[ ! -z $(command -v fzf) ]] &&  return 0
+  git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+  ~/.fzf/install
+}
+
 
 # create tmp file /tmp/fzfSearchInstall overwiting if already exists
 
