@@ -1,0 +1,54 @@
+#!/usr/bin/sh
+
+## Get source
+## Build
+### Configure
+### Make
+### Install
+
+
+# Install Node.js
+## Check for install
+function checkInstallNode () {
+  [[ ! -n $(command -v node) ]] && return 0
+
+  wget https://nodejs.org/download/release/latest/node-v21.6.2-linux-x64.tar.gz
+  tar -xvf node-v21.6.2-linux-x64.tar.gz
+  cd node-v21.6.2-linux-x64
+  sudo cp -r bin/ /usr/local/
+  sudo cp -r include/ /usr/local/
+  sudo cp -r lib/ /usr/local/
+  sudo cp -r share/ /usr/local/
+  cd ..
+  rm -rf node-v21.6.2-linux-x64
+  rm node-v21.6.2-linux-x64.tar.gz
+  [[ -n $(command -v node) ]] && return 1 || return 0
+}
+
+ # Install for vim
+## get source and add to vim's dir
+  #*TODO::add support for custom locations*#
+git clone https://github.com/github/copilot.vim.git \
+~/.vim/pack/github/start/copilot.vim
+ ## open vim and check if copilot is authed
+vim -c Copilot && exit && echo "Copilot is authed" || \
+vim -V -c Copilot auth
+#::prompt user for completion before moving on:#
+
+
+
+# Install for neovim
+#::get runtimepath and clone the repo into it:#
+git clone https://github.com/github/copilot.vim.git \
+#? i think it follows xdg dirs ?#
+#
+$XDG_CONFIG_HOME/nvim/pack/github/start/copilot.vim
+
+## open vim and run Copilot auth
+#nvim -V -c Copilot auth
+
+#check if copilot is authed and exit nvim if it is
+nvim -c Copilot && exit && echo "Copilot is authed" || \
+nvim -V -c Copilot auth
+
+
