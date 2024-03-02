@@ -1,0 +1,85 @@
+#!/usr/bin/zsh
+
+# This script is used to install user .zshtc file with some extras
+#  like eza/exa bat zsh-syntax-highlighting and zsh-autosuggestions
+
+# Check if zsh is installed
+[[  -z $(command -v zsh) ]] && \
+   sudo dnf install zsh
+
+
+# Check if git is installed
+[[  -z $(command -v git) ]] && \
+   sudo dnf install git
+
+# check for eza then exa if eza is not installed
+[[  -z $(command -v eza) ]] && {
+   sudo dnf install eza && \
+    echo 'alias ls="eza --color=auto --icons"' >> ~/.zshrc
+
+} || \
+  [[  -z $(command -v exa) ]] && {
+     sudo dnf install exa && \
+      echo 'alias ls="exa --color=auto --icons"' >> ~/.zshrc
+  }
+
+# check for bat
+[[  -z $(command -v bat) ]] && \
+   sudo dnf install bat && \
+    echo 'alias cat="bat --theme="Dracula""' >> ~/.zshrc
+
+
+# check for zsh-syntax-highlighting
+[[  -z $(command -v zsh-syntax-highlighting) ]] && \
+   sudo dnf install zsh-syntax-highlighting && \
+    echo "source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ~/.zshrc
+
+# check for zsh-autosuggestions
+[[  -z $(command -v zsh-autosuggestions) ]] && \
+   sudo dnf install zsh-autosuggestions && \
+    echo "source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" >> ~/.zshrc
+
+# check for fzf
+[[  -z $(command -v fzf) ]] && \
+   sudo dnf install fzf && \
+    echo "source /usr/share/fzf/key-bindings.zsh" >> ~/.zshrc && \
+    echo "source /usr/share/fzf/completion.zsh" >> ~/.zshrc
+
+#History
+echo "HISTFILE=~/.zsh_history" >> ~/.zshrc
+echo "HISTSIZE=10000" >> ~/.zshrc
+echo "SAVEHIST=10000" >> ~/.zshrc
+#echo "setopt appendhistory" >> ~/.zshrc
+echo "setopt incappendhistory" >> ~/.zshrc
+echo "setopt sharehistory" >> ~/.zshrc
+echo "setopt hist_ignore_dups" >> ~/.zshrc
+
+#Preferences
+echo "export EDITOR=nvim" >> ~/.zshrc
+echo "export VISUAL=nvim" >> ~/.zshrc
+echo "setopt auto_cd" >> ~/.zshrc
+echo "setopt no_beep" >> ~/.zshrc
+echo "bindkey -v" >> ~/.zshrc
+
+#Colors
+echo "autoload -U colors" >> ~/.zshrc
+echo "colors" >> ~/.zshrc
+
+#Aliases
+echo "alias la='ls -a'" >> ~/.zshrc
+echo "alias ll='ls -l'" >> ~/.zshrc
+echo "alias mkdir='mkdir -p'" >> ~/.zshrc
+echo "alias rmdir='rmdir || rm -r'" >> ~/.zshrc
+echo "alias cp='cp -i'" >> ~/.zshrc
+echo "alias mv='mv -i'" >> ~/.zshrc
+
+#Compinit
+echo "autoload -U compinit" >> ~/.zshrc
+echo "compinit" >> ~/.zshrc
+
+#Prompt
+echo "autoload -U promptinit" >> ~/.zshrc
+echo "promptinit" >> ~/.zshrc
+echo "prompt adam1" >> ~/.zshrc
+
+
