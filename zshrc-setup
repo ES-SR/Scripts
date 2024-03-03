@@ -1,47 +1,47 @@
-#!/usr/bin/zsh
+#!/usr/bin/sh
 
 # This script is used to install user .zshtc file with some extras
 #  like eza/exa bat zsh-syntax-highlighting and zsh-autosuggestions
 
 # Check if zsh is installed
 [[  -z $(command -v zsh) ]] && \
-   sudo dnf install zsh
+   sudo dnf install -y zsh
 
 
 # Check if git is installed
 [[  -z $(command -v git) ]] && \
-   sudo dnf install git
+   sudo dnf install -y git
 
 # check for eza then exa if eza is not installed
 [[  -z $(command -v eza) ]] && {
-   sudo dnf install eza && \
+   sudo dnf install -y eza && \
     echo 'alias ls="eza --color=auto --icons"' >> ~/.zshrc
 
 } || \
   [[  -z $(command -v exa) ]] && {
-     sudo dnf install exa && \
+     sudo dnf install -y exa && \
       echo 'alias ls="exa --color=auto --icons"' >> ~/.zshrc
   }
 
 # check for bat
 [[  -z $(command -v bat) ]] && \
-   sudo dnf install bat && \
+   sudo dnf install -y bat && \
     echo 'alias cat="bat --theme="Dracula""' >> ~/.zshrc
 
 
 # check for zsh-syntax-highlighting
 [[  -z $(command -v zsh-syntax-highlighting) ]] && \
-   sudo dnf install zsh-syntax-highlighting && \
+   sudo dnf install -y zsh-syntax-highlighting && \
     echo "source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> ~/.zshrc
 
 # check for zsh-autosuggestions
 [[  -z $(command -v zsh-autosuggestions) ]] && \
-   sudo dnf install zsh-autosuggestions && \
+   sudo dnf install -y zsh-autosuggestions && \
     echo "source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" >> ~/.zshrc
 
 # check for fzf
 [[  -z $(command -v fzf) ]] && \
-   sudo dnf install fzf && \
+   sudo dnf install -y fzf && \
     echo "source /usr/share/fzf/key-bindings.zsh" >> ~/.zshrc && \
     echo "source /usr/share/fzf/completion.zsh" >> ~/.zshrc
 

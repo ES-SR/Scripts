@@ -10,20 +10,21 @@
 # Install Node.js
 ## Check for install
 function checkInstallNode () {
-  [[ ! -n $(command -v node) ]] && return 0
-
-  wget https://nodejs.org/download/release/latest/node-v21.6.2-linux-x64.tar.gz
-  tar -xvf node-v21.6.2-linux-x64.tar.gz
-  cd node-v21.6.2-linux-x64
-  sudo cp -r bin/ /usr/local/
-  sudo cp -r include/ /usr/local/
-  sudo cp -r lib/ /usr/local/
-  sudo cp -r share/ /usr/local/
-  cd ..
-  rm -rf node-v21.6.2-linux-x64
-  rm node-v21.6.2-linux-x64.tar.gz
+  which node || \
+  wget https://nodejs.org/download/release/latest/node-v21.6.2-linux-x64.tar.gz && \
+  tar -xvf node-v21.6.2-linux-x64.tar.gz && \
+  cd node-v21.6.2-linux-x64 && \
+  sudo cp -r bin/ /usr/local/ && \
+  sudo cp -r include/ /usr/local/ && \
+  sudo cp -r lib/ /usr/local/ && \
+  sudo cp -r share/ /usr/local/ && \
+  cd .. && \
+  rm -rf node-v21.6.2-linux-x64 && \
+  rm node-v21.6.2-linux-x64.tar.gz && \
   [[ -n $(command -v node) ]] && return 1 || return 0
 }
+
+checkInstallNode
 
  # Install for vim
 ## get source and add to vim's dir
