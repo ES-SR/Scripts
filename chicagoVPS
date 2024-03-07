@@ -1,0 +1,345 @@
+#!/usr/bin/zsh
+
+# ChicagoVPS_API
+# A zsh script to interact with the ChicagoVPS API
+# run ChicagoVPS_API help for usage
+
+
+		## VARS
+apibaseurl='https://portal.allsitecontrol.com:4083/index.php?'	#api base url for ChicagoVPS
+declare -A apipostargs						#array to hold post args
+
+
+
+		###  Config functions  ###
+function apiConfigKey {
+  # check env for CHICAGOVPS_API_KEY
+  # if not set, prompt for it
+  if [[ -z $1 ]]; then			   # if no key passed
+    if [[ -z $CHICAGOVPS_API_KEY ]]; then    # if no env var set
+      echo "Please enter your API key"
+      read apikey
+      export CHICAGOVPS_API_KEY=$apikey
+    else				     # if env var set
+      apikey=$CHICAGOVPS_API_KEY
+    fi
+  else					   # if key passed
+    apikey=$1                                #* doesnt overwrite env var
+  fi
+}
+#autoload -Uz apiConfigKey	##FOR TESTING - called automatically or with flags for release 
+
+function apiConfigPass {
+  # check env for CHICAGOVPS_API_PASS
+  # if not set, prompt for it
+  if [[ -z $1 ]]; then			   # if no pass passed
+    if [[ -z $CHICAGOVPS_API_PASS ]]; then    # if no env var set
+      echo "Please enter your API pass"
+      read apipass
+      export CHICAGOVPS_API_PASS=$apipass
+    else				     # if env var set
+      apipass=$CHICAGOVPS_API_PASS
+    fi
+  else					   # if pass passed
+    apipass=$1			             #* doesnt overwrite env var
+  fi
+}
+#autoload -Uz apiConfigPass	##FOR TESTING - called automatically or with flags for release
+
+function apiConfigAuth {
+  apiConfigKey $1
+  apiConfigPass $2
+}
+#autoload -Uz apiConfigAuth	##FOR TESTING - called automatically or with flags for release
+
+
+
+		###  API ACTION FUNCTIONS  ###
+function apiSetAction {
+  apiaction=$1
+}
+#autoload -Uz apiSetAction	##FOR TESTING - called automatically or with flags for release
+
+
+function apiGetAction {
+  if [[ -z $apiaction ]]; then
+    echo "Please set an action"
+    read action
+    apiSetAction $action
+  fi
+  echo $apiaction
+}
+#autoload -Uz apiGetAction	##FOR TESTING - called automatically or with flags for release
+
+
+
+		###  API POST DATA FUNCTIONS  ###
+	## ADD DATA ##
+function apiAddPostArg {
+  apipostargs[${1}]=$2
+}
+#autoload -Uz apiAddPostArg 		##FOR TESTING - called automatically or with flags for release
+
+function apiAddPostArgs {
+  while [[ $# -gt 0 ]]; do
+    apiAddPostArg $1 $2
+    shift
+    shift
+  done
+}
+#autoload -Uz apiAddPostArgs 			##FOR TESTING - called automatically or with flags for release
+
+	## REMOVE DATA ##
+function apiRemovePostArg {
+  unset -v "apipostargs[${1}]"
+}
+#autoload -Uz apiRemovePostArg			##FOR TESTING - called automatically or with flags for release
+
+function apiRemovePostArgs {
+  while [[ $# -gt 0 ]]; do
+    apiRemovePostArg $1
+    shift
+  done
+}
+#autoload -Uz apiRemovePostArgs
+
+function apiClearPostArgs {
+  apipostargs=()
+}
+#autoload -Uz apiClearPostArgs
+
+	## LIST DATA ##
+function apiListPostArgs {
+  for key value in ${(kv)apipostargs}; do
+    echo $key $value
+  done
+}
+
+function apiListPostArgNames {
+  for key value in ${(kv)apipostargs}; do
+    echo $key
+  done
+}
+
+function apiListPostArgValues {
+  for key value in ${(kv)apipostargs}; do
+    echo $value
+  done
+}
+
+
+
+		###  DATA FORMATTING FUNCTIONS  ###
+function buildActionString {
+  if [[ -z $apiaction ]]; then
+    apiaction=apiGetAction
+  fi
+  echo "act=${apiaction}"
+}
+
+function buildAuthString {
+  # check vars for api key and pass
+  if [[ -z $apikey ]]; then		# if no key var set
+    apiConfigKey			 #read from env or prompt
+  fi
+  if [[ -z $apipass ]]; then	        # if no pass var set
+    apiConfigPass			 #read from env or prompt
+  fi
+
+  # build the auth string
+  apiauth='&api=json&apikey='${apikey}'&apipass='${apipass}
+  echo $apiauth
+}
+
+function buildURLString {
+  local actionString=$(buildActionString)
+  local authString=$(buildAuthString)
+
+  local completeURL=${apibaseurl}${actionString}${authString}
+  echo $completeURL
+}
+#autoload -Uz buildURLString
+
+function buildPostData {
+  local postData=''
+  for key value in ${(kv)apipostargs}; do
+    if [[ -z $postData ]]; then			# dont add & to first arg
+      postData=${key}'='${value}
+    else
+      postData=${postData}'&'${key}'='${value}
+    fi
+  done
+  echo $postData
+}
+
+
+
+		###  RUN FUNCTIONS - prompt for needed info if not found ###
+function runApiCall {
+  # check for auth
+  local apiauth=$(buildAuthString)
+
+  # check for action
+  local actionString=$(buildActionString)
+
+  local URLString=$(buildURLString)
+
+  # check for post args and if none run curl with get
+  if [[ -z $apipostargs ]]; then
+    curl -k -L ${URLString} | jq
+    return
+  fi
+  # if post args, build post data and run curl with post
+  local postData=$(buildPostData)
+  curl -k -X POST -d ${postData} -L ${URLString} | jq
+
+}
+#autoload -Uz apiCall
+
+function runConfigure {
+  if [[ -z $1 ]]; then	# if no subcommand
+    apiConfigAuth
+    return
+  fi
+
+  local subcommand=$1
+  shift
+
+  case $subcommand in
+    key)
+      apiConfigKey $@
+      ;;
+    pass)
+      apiConfigPass $@
+      ;;
+    auth)
+      apiConfigAuth $@
+      ;;
+  esac
+}
+
+function runAction {
+  # if no subcommand, print current action
+  if [[ -z $1 ]]; then
+    apiGetAction
+    return
+  fi
+
+  case $subcommand in
+    set)
+      apiSetAction $@
+      ;;
+    get)
+      apiGetAction
+      ;;
+    *)			# if not set or get, assume value for set
+      apiSetAction $@
+      ;;
+  esac
+}
+
+function runData {
+  if [[ -z $1 ]]; then
+    echo "Please specify a data subcommand"
+    echo "add, remove, list, clear, names, values"
+    return
+  fi
+
+  local subcommand=$1
+  shift
+
+  case $subcommand in
+    add)
+      apiAddPostArgs $@
+      ;;
+    remove)
+      apiRemovePostArgs $@
+      ;;
+    list)
+      apiListPostArgs
+      ;;
+    clear)
+      apiClearPostArgs
+      ;;
+    names)
+      apiListPostArgNames
+      ;;
+    values)
+      apiListPostArgValues
+      ;;
+  esac
+}
+
+function runHelp {
+  echo "Usage:"
+  echo "  ChicagoVPS_API <command> [ <subcommand> <options> <args> ]"
+  echo "Commands:"
+  echo "  run - call the api"
+  echo "  config - set key and pass"
+  echo "    key - set key"
+  echo "    pass - set pass"
+  echo "  action - set action"
+  echo "  data"
+  echo "    add - add data"
+  echo "    remove - remove data"
+  echo "    list - list data"
+  echo "    clear - clear data"
+  echo "    names - list data names"
+  echo "    values - list data values"
+  echo "  help - print this message"
+  echo "  call - call the api, alias for run"
+}
+
+
+
+		### PROGRAM EXECUTION FUNCTIONS  ###
+function ChicagoVPS_API {
+  # usage:
+  #   ChicagoVPS_API <command> [ <subcommand> <options> <args> ]
+  # commands:
+  #   run - call the api
+  #   config - set key and pass
+  #     key - set key
+  #     pass - set pass
+  #   action - get action
+  #     get - get action
+  #     set - set action
+  #     <action> - set action
+  #   data
+  #     add - add data
+  #     remove - remove data
+  #     list - list data
+  #     clear - clear data
+  #     names - list data names
+  #     values - list data values
+  #   help - print this message
+  #   call - call the api, alias for run
+
+  # get command
+  if [[ -z $1 ]]; then
+    runHelp
+    return
+  fi
+
+  local command=$1
+  shift
+
+  case $command in
+    run | call)
+      runApiCall $@
+      ;;
+    config)
+      runConfigure $@
+      ;;
+    action)
+      runAction $@
+      ;;
+    data)
+      runData $@
+      ;;
+    help)
+      runHelp
+      ;;
+  esac
+}
+autoload -Uz ChicagoVPS_API
