@@ -1,0 +1,1 @@
+../Collections/Notes/clipToFile.sh

@@ -1,0 +1,1 @@
+../Collections/ShellTools/renameFiles.zsh
