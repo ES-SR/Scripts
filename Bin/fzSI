@@ -1,0 +1,65 @@
+#!/usr/bin/zsh
+
+function checkInstallFzf () {
+  [[ ! -z $(command -v fzf) ]] &&  return 0
+  git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+  ~/.fzf/install
+}
+
+
+# create tmp file /tmp/fzfSearchInstall overwiting if already exists
+
+
+function dnfFzfToFile () {
+  # pipe results of dnf search $1 to fzf then save to $2 if provided
+  # otherwise use tmp file
+  local interFile="/tmp/search"
+  if [ -n "$2" ]; then
+    interFile="$2"
+  fi
+
+  dnf search $1 | fzf -m --color  --reverse > $interFile
+
+}
+
+function dnfFzfInstallFromFile () {
+   sudo dnf install $( awk '/^[aA-zZ]/ {print $1}' $1 )
+}
+
+function dnfFzfInstall () {
+  # pipe results of dnf search $1 to fzf then install
+  # if $2 is provided then save to $2 otherwise use tmp file
+  local interFile="/tmp/search"
+  if [ -n "$2" ]; then
+    interFile="$2"
+  fi
+
+  dnfFzfToFile $1 $interFile
+  dnfFzfInstallFromFile $interFile
+}
+
+# dnfFzfSearchInstall - combines functionality of dnfFzfToFile and dnfFzfInstallFromFile
+# without using a tmp file
+function dnfFzfSearchInstall () {
+  sudo dnf install $(  \
+    dnf --color=always search $1 |  \
+    fzf -m --reverse --ansi |  \
+    awk '/^[aA-zZ]/ {print $1}' )
+}
+
+# run dnfFzfSearchInstall when this file is run
+dnfFzfSearchInstall $1
+
+# unset functions exluding dnfFzfSearchInstall
+unset -f dnfFzfToFile dnfFzfInstallFromFile dnfFzfInstall
+# unset variables
+unset interFile
+# and remove tmp file if it exists
+[ -f /tmp/search ] && rm /tmp/search
+
+
+
+
+
+
+
