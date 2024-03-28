@@ -70,139 +70,328 @@ ColorAdjust () {
 autoload -Uz ColorAdjust
 
 
-ColorsPrintAllShellCombos () {
-  local verbose=0
-  for arg in $@; do
-    if [[ $arg == -v ]] || [[ $arg == --verbose ]]; then
-      verbose=1
-    fi
-  done
 
-  local -a colorsOrder=(B r g y b m c w d)
-  local -a attributesOrder=(n B u b r c)
-  local -A colors=(
-    [B]=Black [r]=Red [g]=Green [y]=Yellow [b]=Blue [m]=Magenta [c]=Cyan [w]=White [d]=Default [w]=White
-  )
-  local -A attributes=(
-    [n]=None [B]=Bold [u]=Underscore [b]=Blink [r]=Reverse [c]=Concealed
-  )
+_verbosityCheck () {
+# fn:_verbosityCheck int:verbosityLevel int:levelRequired -> int:0|1 => 0 meets requirements, 1 does not
+  # ex: _verbosityCheck 2 1 -> 0  :  _verbosityCheck 2 1 && echo "this will print"
+  # ex: _verbosityCheck 1 2 -> 1  :  _verbosityCheck 1 2 && echo "this will not print"
+  
+  local verbose=$1
+  local levelCheck=$2
 
-  [[ $verbose -eq 1 ]] && echo "Starting color test"
- 
-  local lsAlias=$(alias ls | awk -F'=' '{print $2}' | tr -d "'")
-  if [[ $? -eq 0 ]]; then
-    [[ $verbose -eq 1 ]] && echo "Found ls alias: $lsAlias. Saving it to restore later"
-    [[ $verbose -eq 1 ]] && echo "Removing ls alias for the duration of the test"
-    unalias ls
-    [[ $verbose -eq 1 ]] && echo "Removed ls alias"
-  fi
-  [[ $verbose -eq 1 ]] && echo "Creating ls alias for color test"
-  alias ls='ls --color=always'
-  [[ $verbose -eq 1 ]] && echo "Created ls alias for color test"
-
-
-  [[ $verbose -eq 1 ]] && echo "Creating tmp dir for color test at /tmp/colortest.XXXXXX"
-  local tmpDir=$(mktemp -d /tmp/colortest.XXXXXX)
-  if [[ $? -ne 0 ]]; then
-    [[ $verbose -eq 1 ]] && echo "Failed to create tmp dir"
+  if [[ $verbose -ge $levelCheck ]]; then
+    return 0
+  else
     return 1
   fi
-  [[ $verbose -eq 1 ]] && echo "Created tmp dir at $tmpDir"
+}
+_vc=_verbosityCheck # alias for _verbosityCheck
 
-  [[ $verbose -eq 1 ]] && echo "Creating file names for color test"
+_verboseEcho () {
+# fn:_verboseEcho int:verbosityLevel int:levelRequired string:message -> void => echo message if verbosityLevel meets levelRequired
+  # ex: _verboseEcho 2 1 "this will print" -> "this will print"
+  # ex: _verboseEcho 1 2 "this will not print" -> 
+  # ex: _verboseEcho 2 2 "var: $var" -> "var: value of var"
+
+  local verbosity=$1
+  local levelCheck=$2
+  
+  if _verbosityCheck $verbosity $levelCheck; then
+    shift 2
+    echo $@
+  fi
+}
+_ve () {
+  _verboseEcho $@
+}
+
+ColorsPrintAllShellCombos () {
+  ## Variables ##
+  local verbosity=0
+
+  local -a colorsOrder=(B r g y b m c w d)
+  local -A colors=(
+    [B]=Black
+    [r]=Red
+    [g]=Green
+    [y]=Yellow
+    [b]=Blue
+    [m]=Magenta
+    [c]=Cyan
+    [w]=White
+    [d]=Default
+    [w]=White
+  )
+
+  local -a attributesOrder=(n B u b r c)
+  local -A attributes=(
+    [n]=None
+    [B]=Bold
+    [u]=Underscore
+    [b]=Blink
+    [r]=Reverse
+    [c]=Concealed
+  )
+
+  local fzfDisplay=0
+
+  ## Parse Args ##
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -v|--verbose)
+        _ve $verbosity 3 "found verbose flag"
+        verbosity=$((verbosity + 1))
+        [[ $verbosity -eq 1 ]] && \
+          _ve $verbosity 1 "verbosity enabled"
+        [[ $verbosity -gt 3 ]] && \
+          verbosity=3 && \
+          _ve $verbosity 3 "max verbosity level reached" || \
+          _ve $verbosity 1 "verbosity level increased to $verbosity"
+        shift
+        ;;
+      -a|--attributes)
+        _ve $verbosity 3 "found attributes flag"
+        local -a attributeKeys=(${(k)attributes})
+        _ve $verbosity 3 "attributeKeys: $attributeKeys"
+        attributesOrder=()
+        _ve $verbosity 3 "attributesOrder: $attributesOrder"
+        shift
+        while [[ $1 != -* ]] && [[ $# -gt 0 ]]; do # while there are more args that don't start with a dash
+          _ve $verbosity 3 "arg: $1"
+          if [[ $attributeKeys[(I)$1] -gt 0 ]]; then  # get index and check if it is greater than 0 (arrays start at 1)
+            _ve $verbosity 3 "adding $1 to attributesOrder"
+            attributesOrder+=$1
+            _ve $verbosity 3 "attributesOrder: $attributesOrder"
+          else
+            _ve $verbosity 1 "Unknown attribute: $1"
+            return 1
+          fi
+          shift
+          _ve $verbosity 3 "shifted args"
+        done
+        _ve $verbosity 3 "updating attributes"
+        _ve $verbosity 3 "attributes keys: ${(k)attributes}"
+        for key in ${(k)attributes}; do     # for each attribute in the attributes array
+          if [[ $attributesOrder[(I)$key] -eq 0 ]]; then  
+            _ve $verbosity 3 "removing $key from attributes"
+            unset "attributes[$key]"    # unset AssociativeArray[key] removes the key from the array
+            _ve $verbosity 3 "attributes: $attributes"
+          fi
+        done
+        ;;
+      -c|--colors)
+        _ve $verbosity 3 "found colors flag"
+        shift 1
+        colorsKeys=(${(k)colors})
+        _ve $verbosity 3 "colorsKeys: $colorsKeys"
+        colorsOrder=()
+        _ve $verbosity 3 "colorsOrder: $colorsOrder"
+        while [[ $1 != -* ]] && [[ $# -gt 0 ]]; do
+          _ve $verbosity 3 "arg: $1"
+          if [[ $colorsKeys[(I)$1] -gt 0 ]]; then
+            _ve $verbosity 3 "adding $1 to colorsOrder"
+            colorsOrder+=$1
+            _ve $verbosity 3 "colorsOrder: $colorsOrder"
+          else
+            _ve $verbosity 1 "Unknown color: $1"
+            return 1
+          fi
+          shift
+          _ve $verbosity 3 "shifted args"
+        done
+        _ve $verbosity 3 "updating colors"
+        _ve $verbosity 3 "colors keys: ${(k)colors}"
+        for key in ${(k)colors}; do
+          if [[ $colorsOrder[(I)$key] -eq 0 ]]; then
+            _ve $verbosity 3 "removing $key from colors"
+            unset "colors[$key]"
+            _ve $verbosity 3 "colors: $colors"
+          fi
+        done
+        ;;
+      -f|--fzf)
+        _ve $verbosity 3 "found fzf flag"
+        _ve $verbosity 2 "enabled fzf display"
+        fzfDisplay=1
+        shift
+        ;;
+      -h|--help)
+        _ve $verbosity 3 "found help flag"
+        echo "Usage: ColorsPrintAllShellCombos [options]"
+        echo "Options:"
+        echo "  -v, --verbose:"
+        echo "    Enable verbose mode. More v's will increase verbosity. max 3 v's."
+        echo "  -a, --attributes <attributes>:"
+        echo "    Set the attributes to print in the order they are passed."
+        echo "    Possible args and the attributes they represent:"
+        echo "      n: None, B: Bold, u: Underscore, b: Blink, r: Reverse, c: Concealed"
+        echo "  -c, --colors <colors>: Set the colors to print in the order they are passed."
+        echo "    Possible args and the colors they represent:"
+        echo "      B: Black, r: Red, g: Green, y: Yellow, b: Blue, m: Magenta, c: Cyan, w: White, d: Default"
+        echo "  -h, --help: Print this help message"
+        return 0
+        ;;
+      *)
+        echo "Unknown option: $1"
+        return 1
+        ;;
+    esac
+  done
+  _ve $verbosity 3 "finished parsing args"
+
+
+  _ve $verbosity 1 "Setting up environment for ColorsPrintAllShellCombos"
+
+## set alias for ls to ensure color output ##
+  _ve $verbosity 2 "Checking for existing ls alias"
+  local lsAlias=$(alias ls | awk -F'=' '{print $2}' | tr -d "'")
+  if [[ $? -eq 0 ]]; then
+    _ve $verbosity 3 "Found ls alias: $lsAlias. Saving it to restore later"
+    _ve $verbosity 3 "Removing ls alias for the duration of the test"
+    unalias ls
+  fi
+  _ve $verbosity 3 "No ls alias found"
+  _ve $verbosity 2 "Creating ls alias for color test"
+  alias ls='ls --color=always'
+
+
+  ## Create tmp dir for files ##
+  _ve $verbosity 2 "Creating tmp dir at /tmp/colortest.XXXXXX"
+  local tmpDir=$(mktemp -d /tmp/colortest.XXXXXX)
+  if [[ $? -ne 0 ]]; then
+    _ve $verbosity 1 "Failed to create tmp dir"
+    return 1
+  fi
+  _ve $verbosity 2 "Created tmp dir at $tmpDir"
+
+  ## Create file names for PrintAllShellCombos ##
+  _ve $verbosity 2 "Creating file names for color test"
   local fileNames=()
+  _ve $verbosity 3 "starting fgColor loop"
   for fgColorLetter in $colorsOrder; do
+    _ve $verbosity 3 "starting bgColor loop"
     for bgColorLetter in $colorsOrder; do
+      _ve $verbosity 3 "starting attribute loop"
       for attrLetter in $attributesOrder; do
+  #for attrLetter in $attributesOrder; do
+    #for bgColorLetter in $colorsOrder; do
+      #for fgColorLetter in $colorsOrder; do
         local fgColor=${colors[$fgColorLetter]}
+        _ve $verbosity 3 "fgColor: $fgColor"
         local bgColor=${colors[$bgColorLetter]}
+        _ve $verbosity 3 "bgColor: $bgColor"
         local attrName=${attributes[$attrLetter]}
+        _ve $verbosity 3 "attrName: $attrName"
         local newFile="${fgColor}On${bgColor}_${attrName}.${fgColorLetter}${bgColorLetter}${attrLetter}"
-        [[ verbose -eq 1 ]] && echo "Creating file name: $newFile"
+        _ve $verbosity 3 "newFile: $newFile"
         fileNames=($fileNames $newFile)
+        #_ve $verbosity 3 "fileNames: $fileNames"
       done
     done
   done
-  [[ $verbose -eq 1 ]] && echo "Created file names for color test"
+  _ve $verbosity 2 "Created file names for color test"
 
-  [[ $verbose -eq 1 ]] && echo "Creating color test files in $tmpDir"
+  ## Create files ##
+  _ve $verbosity 2 "Creating files in $tmpDir from generated file names"
   for name in $fileNames; do
+    _ve $verbosity 3 "Creating file: $name"
     touch $tmpDir/$name
   done
-  [[ $verbose -eq 1 ]] && echo "Created color test files in $tmpDir"
+  _ve $verbosity 2 "Created files in $tmpDir"
 
-  if [[ $verbose -eq 1 ]]; then
-    echo "Creating backup of current LS_COLORS"
-    echo "Current settings will be saved to $tmpDir/.original_dircolors"
-    echo "They will be restored after the test. In case of failure, restore them manually"
-    echo "by running 'export LS_COLORS=\$(cat ${tmpDir}/.original_dircolors)'"
-  fi
+  ## Backup LS_COLORS ##
+  _ve $verbosity 2 "Creating backup of current LS_COLORS at $tmpDir/.original_dircolors"
+  _ve $verbosity 3 "LS_COLORS will be restored after the test."
+  _ve $verbosity 3 "In case of failure, restore them manually by running 'export LS_COLORS=\$(cat ${tmpDir}/.original_dircolors)'"
   local original_LS_COLORS=$LS_COLORS
   local original_LS_COLORS_FILE=$tmpDir/.original_dircolors
+  _ve $verbosity 3 "original_LS_COLORS: $original_LS_COLORS"
   echo $original_LS_COLORS > $original_LS_COLORS_FILE
-  [[ $verbose -eq 1 ]] && echo "Created backup of current LS_COLORS"
+  _ve $verbosity 2 "Created backup of current LS_COLORS"
 
-
-  [[ $verbose -eq 1 ]] && echo "Creating file to load with dircolors"
+  ## Create dircolors file ##
+  _ve $verbosity 3 "dircolorsFile: $tmpDir/.dircolorsFile"
   local dircolorsFile=$tmpDir/.dircolorsFile
+  _ve $verbosity 2 "Creating file to load with dircolors at $dircolorsFile"
   touch $dircolorsFile
+  [[ $? -ne 0 ]] && return 1
+  _ve $verbosity 2 "Created file to load with dircolors"
+
+  ## map color and attribute flags to color codes ##
   local -A textColors=(
     [B]=30 [r]=31 [g]=32 [y]=33 [b]=34 [m]=35 [c]=36 [w]=37 [d]=39
   )
+  _ve $verbosity 3 "textColors: $textColors"
   local -A bgColors=(
     [B]=40 [r]=41 [g]=42 [y]=43 [b]=44 [m]=45 [c]=46 [w]=47 [d]=49
   )
+  _ve $verbosity 3 "bgColors: $bgColors"
   local -A attributes=(
     [n]=00 [B]=01 [u]=04 [b]=05 [r]=07 [c]=08
   )
-  # now for each file in files array, write the extension and color code to the dircolors file
+  _ve $verbosity 3 "attributes: $attributes"
+  
+  ## Convert file name extensions to color codes ##
+  _ve $verbosity 2 "Converting file names to color codes and writing to $dircolorsFile"
   for name in $fileNames; do
     # get the extension of the file
     local ext=$(echo $name | awk -F '.' '{print $2}' )
+    _ve $verbosity 3 "ext: $ext"
      # get the color, background and attribute for the letter
     local textColor=${ext[1]}
+    _ve $verbosity 3 "textColor: $textColor"
     local bgColor=${ext[2]}
+    _ve $verbosity 3 "bgColor: $bgColor"
     local attr=${ext[3]}
+    _ve $verbosity 3 "attr: $attr"
     local ColorCode="${textColors[$textColor]};${bgColors[$bgColor]};${attributes[$attr]}"
-    if [[ $verbose -eq 1 ]]; then
-      echo "" $ext " - " $ColorCode
-      echo "-------------------"
-      echo "fg:   " ${ext[1]} ":" ${textColors[$textColor]}
-      echo "bg:   " ${ext[2]} ":" ${bgColors[$bgColor]}
-      echo "attr: " ${ext[3]} ":" ${attributes[$attr]}
-      echo ""
-    fi
+    _ve $verbosity 3 "ColorCode: $ColorCode"
+    _ve $verbosity 3 "-------------------"
     # write the extension and color code to the dircolors file
+    _ve $verbosity 3 "Writing color code $ColorCode to $dircolorsFile"
     echo "*.$ext $ColorCode" >> $dircolorsFile
   done
-  [[ $verbose -eq 1 ]] && echo "Wrote color codes to $dircolorsFile"
-  
-  [[ $verbose -eq 1 ]] && echo "Loading color codes with dircolors"
+  _ve $verbosity 2 "Wrote color codes to $dircolorsFile"
+ 
+  ## set LS_COLORS with dircolors and dircolors file ##
+  _ve $verbosity 2 "Setting LS_COLORS with dircolors and $dircolorsFile"
   eval $(dircolors -b $dircolorsFile)
+  _ve $verbosity 2 "Set LS_COLORS with dircolors and $dircolorsFile"
 
-  [[ $verbose -eq 1 ]] && echo "Printing color test files"
-  eval ls $tmpDir
-
-
-
-  [[ $verbose -eq 1 ]] && echo "unsetting script's ls alias"
-  unalias ls
-  [[ $verbose -eq 1 ]] && echo "unset ls alias"
-  if [[ -n $lsAlias ]]; then
-    [[ $verbose -eq 1 ]] && echo "Restoring original ls alias"
-    alias ls=$lsAlias
-    [[ $verbose -eq 1 ]] && echo "Restored ls alias"
+  ## Display files with colored output ##
+  _ve $verbosity 1 "Finished setting up environment for ColorsPrintAllShellCombos"
+  _ve $verbosity 1 "Displaying files with colored output"
+  if [[ $fzfDisplay -eq 0 ]]; then
+    _ve $verbosity 2 "Displaying files with colored output"
+    ls $tmpDir
+  else
+    _ve $verbosity 2 "Displaying files with fzf interface"
+    eval ls $tmpDir | fzf --ansi --reverse 
   fi
 
-  [[ $verbose -eq 1 ]] && echo "Restoring original LS_COLORS"
+
+
+  ## Cleanup ##
+  _ve $verbosity 1 "Cleaning up after ColorsPrintAllShellCombos"
+  _ve $verbosity 2 "Unsetting script's ls alias"
+  unalias ls
+  _ve $verbosity 3 "Checking for original ls alias"
+  if [[ -n $lsAlias ]]; then
+    _ve $verbosity 2 "Restoring original ls alias"
+    alias ls=$lsAlias
+    _ve $verbosity 3 "Restored ls alias"
+  fi
+
+  _ve $verbosity 2 "Restoring original LS_COLORS"
   export LS_COLORS=$(cat $tmpDir/.original_dircolors)
-  [[ $verbose -eq 1 ]] && echo "Restored original LS_COLORS"
+  _ve $verbosity 3 "Restored original LS_COLORS"
 
-  [[ $verbose -eq 1 ]] && echo "Removing tmp dir"
+  _ve $verbosity 2 "Removing dircolors file"
   rm -rf $tmpDir
-  [[ $verbose -eq 1 ]] && echo "Removed tmp dir"
+  _ve $verbosity 3 "Removed dircolors file"
 
-  [[ $verbose -eq 1 ]] && echo "Done"
+
+  _ve $verbosity 2 "Finished cleaning up after ColorsPrintAllShellCombos"
   return 0
 } 
 autoload -Uz ColorsPrintAllShellCombos
