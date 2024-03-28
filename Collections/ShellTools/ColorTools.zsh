@@ -1,31 +1,83 @@
 #!/bin/zsh
 
 
-declare -gA ColorsTerminalEscapeSequences=(
-  [reset]=$'\e[0m'
-  [bold]=$'\e[1m'
-  [dim]=$'\e[2m'
-  [underline]=$'\e[4m'
-  [blink]=$'\e[5m'
-  [reverse]=$'\e[7m'
-  [hidden]=$'\e[8m'
-  [black]=$'\e[30m'
-  [red]=$'\e[31m'
-  [green]=$'\e[32m'
-  [yellow]=$'\e[33m'
-  [blue]=$'\e[34m'
-  [magenta]=$'\e[35m'
-  [cyan]=$'\e[36m'
-  [white]=$'\e[37m'
-  [bgBlack]=$'\e[40m'
-  [bgRed]=$'\e[41m'
-  [bgGreen]=$'\e[42m'
-  [bgYellow]=$'\e[43m'
-  [bgBlue]=$'\e[44m'
-  [bgMagenta]=$'\e[45m'
-  [bgCyan]=$'\e[46m'
-  [bgWhite]=$'\e[47m'
-)
+
+ColorTerminalEscapeSequences () {
+  declare -A ColorsTerminalEscapeSequences=(
+    [reset]=$'\e[0m'
+    [bold]=$'\e[1m'
+    [dim]=$'\e[2m'
+    [underline]=$'\e[4m'
+    [blink]=$'\e[5m'
+    [reverse]=$'\e[7m'
+    [hidden]=$'\e[8m'
+    [black]=$'\e[30m'
+    [red]=$'\e[31m'
+    [green]=$'\e[32m'
+    [yellow]=$'\e[33m'
+    [blue]=$'\e[34m'
+    [magenta]=$'\e[35m'
+    [cyan]=$'\e[36m'
+    [white]=$'\e[37m'
+    [bgBlack]=$'\e[40m'
+    [bgRed]=$'\e[41m'
+    [bgGreen]=$'\e[42m'
+    [bgYellow]=$'\e[43m'
+    [bgBlue]=$'\e[44m'
+    [bgMagenta]=$'\e[45m'
+    [bgCyan]=$'\e[46m'
+    [bgWhite]=$'\e[47m'
+  )
+
+  if [[ $# -eq 0 ]]; then
+    for key val in ${(Vkv)ColorsTerminalEscapeSequences}; do
+      echo "key: ${key} => ${val}"
+      echo "${ColorsTerminalEscapeSequences[$key]} ${key} ${ColorsTerminalEscapeSequences[reset]}"
+    done
+    return 0
+  fi
+
+  case $1 in
+    fg)
+      for key val in ${(Vkv)ColorsTerminalEscapeSequences}; do
+        if [[ $key == fg* ]]; then
+          echo "key: ${key} => ${val}"
+          echo "${ColorsTerminalEscapeSequences[$key]} ${key} ${ColorsTerminalEscapeSequences[reset]}"
+        fi
+      done
+      return 0
+      ;;
+    bg)
+      for key val in ${(Vkv)ColorsTerminalEscapeSequences}; do
+        if [[ $key == bg* ]]; then
+          echo "key: ${key} => ${val}"
+          echo "${ColorsTerminalEscapeSequences[$key]} ${key} ${ColorsTerminalEscapeSequences[reset]}"
+        fi
+      done
+      return 0
+      ;;
+    -h|--help)
+      echo "Usage: ColorTerminalEscapeSequences [<opt>| <type>]"
+      echo "  No arguments:"
+      echo "    will print all escape sequences"
+      echo "  Types:"
+      echo "    fg - foreground color: lists all foreground color escape sequences"
+      echo "    bg - background color: lists all background color escape sequences"
+      echo "    attr - attribute: lists all attribute escape sequences"
+      echo "  Options:"
+      echo "    reset, bold, dim, underline, blink, reverse, hidden,"
+      echo "    black, red, green, yellow, blue, magenta, cyan, white,"
+      echo "    bgBlack, bgRed, bgGreen, bgYellow, bgBlue, bgMagenta, bgCyan, bgWhite"
+      return 0
+      ;;
+    *)
+      echo "unknown option: $arg"
+      echo "run 'ColorTerminalEscapeSequences -h' for help"
+      return 1
+  esac
+
+}
+autoload -Uz ColorTerminalEscapeSequences
 
 
 # fn:colorAdjust string:#RRGGBB string:l|d float:0-1 -> string:#RRGGBB
@@ -34,11 +86,26 @@ declare -gA ColorsTerminalEscapeSequences=(
 #   $2: direction to adjust (l for lighten, d for darken)
 #   $3: factor to adjust by (from 0 to 1, default 0.5)
 ColorAdjust () {
+  for arg in $@; do
+    case $arg in
+      -h|--help)
+        echo "Usage: ColorAdjust <color> <direction> <factor>"
+        echo "Arguments:"
+        echo "  color: color to adjust (in the format #RRGGBB)"
+        echo "  direction: direction to adjust (l for lighten, d for darken)"
+        echo "  factor: factor to adjust by (from 0 to 1, default 0.5)"
+        echo "  ex. ColorAdjust #FF0000 l 0.5 -> #FF7F7F"
+        return 0
+        ;;
+    esac
+  done
   local color=$1            # color to adjust
   local direction=$2        # lighten or darken (l or d)
   local factor=${3:-0.5}  # factor to adjust by (from 0 to 1, default 0.5)
   if [[ $direction == l ]]; then
-          factor=$((1 + $factor))
+    factor=$((1 + $factor))
+  elif [[ $direction == d ]]; then
+    factor=$((1 - $factor))
   fi
 
   local r g b               
