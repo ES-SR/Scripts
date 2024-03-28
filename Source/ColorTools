@@ -70,41 +70,6 @@ ColorAdjust () {
 autoload -Uz ColorAdjust
 
 
-
-_verbosityCheck () {
-# fn:_verbosityCheck int:verbosityLevel int:levelRequired -> int:0|1 => 0 meets requirements, 1 does not
-  # ex: _verbosityCheck 2 1 -> 0  :  _verbosityCheck 2 1 && echo "this will print"
-  # ex: _verbosityCheck 1 2 -> 1  :  _verbosityCheck 1 2 && echo "this will not print"
-  
-  local verbose=$1
-  local levelCheck=$2
-
-  if [[ $verbose -ge $levelCheck ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-_vc=_verbosityCheck # alias for _verbosityCheck
-
-_verboseEcho () {
-# fn:_verboseEcho int:verbosityLevel int:levelRequired string:message -> void => echo message if verbosityLevel meets levelRequired
-  # ex: _verboseEcho 2 1 "this will print" -> "this will print"
-  # ex: _verboseEcho 1 2 "this will not print" -> 
-  # ex: _verboseEcho 2 2 "var: $var" -> "var: value of var"
-
-  local verbosity=$1
-  local levelCheck=$2
-  
-  if _verbosityCheck $verbosity $levelCheck; then
-    shift 2
-    echo $@
-  fi
-}
-_ve () {
-  _verboseEcho $@
-}
-
 ColorsPrintAllShellCombos () {
   ## Variables ##
   local verbosity=0
@@ -133,21 +98,52 @@ ColorsPrintAllShellCombos () {
     [c]=Concealed
   )
 
+  local -a sortOrder=(f b a)
+
   local fzfDisplay=0
+
 
   ## Parse Args ##
   while [[ $# -gt 0 ]]; do
     case $1 in
       -v|--verbose)
-        _ve $verbosity 3 "found verbose flag"
-        verbosity=$((verbosity + 1))
-        [[ $verbosity -eq 1 ]] && \
-          _ve $verbosity 1 "verbosity enabled"
-        [[ $verbosity -gt 3 ]] && \
-          verbosity=3 && \
-          _ve $verbosity 3 "max verbosity level reached" || \
-          _ve $verbosity 1 "verbosity level increased to $verbosity"
+        _ve $verbosity 1 "found verbose flag"
+        verbosity=1
+        _ve $verbosity 1 "verbosity level set to 1"
         shift
+        ;;
+      -vv|--verbose2)
+        _ve $verbosity 2 "found verbose2 flag"
+        verbosity=2
+        _ve $verbosity 2 "verbosity level set to 2"
+        shift
+        ;;
+      -vvv|--verbose3)
+        _ve $verbosity 3 "found verbose3 flag"
+        verbosity=3
+        _ve $verbosity 3 "verbosity level set to 3"
+        shift
+        ;;
+      -s|--sort)
+        _ve $verbosity 3 "found sort flag"
+        local newSortOrder=()
+        _ve $verbosity 3 "newSortOrder: $newSortOrder"
+        shift
+        while [[ $1 != -* ]] && [[ $# -gt 0 ]]; do
+          _ve $verbosity 3 "arg: $1"
+          if [[ $sortOrder[(I)$1] -gt 0 ]]; then
+            _ve $verbosity 3 "adding $1 to newSortOrder"
+            newSortOrder+=$1
+            _ve $verbosity 3 "newSortOrder: $newSortOrder"
+          else
+            _ve $verbosity 1 "Unknown sort: $1"
+            return 1
+          fi
+          shift
+          _ve $verbosity 3 "shifted args"
+        done
+        _ve $verbosity 3 "updating sortOrder"
+        sortOrder=($newSortOrder)
         ;;
       -a|--attributes)
         _ve $verbosity 3 "found attributes flag"
@@ -220,7 +216,9 @@ ColorsPrintAllShellCombos () {
         echo "Usage: ColorsPrintAllShellCombos [options]"
         echo "Options:"
         echo "  -v, --verbose:"
-        echo "    Enable verbose mode. More v's will increase verbosity. max 3 v's."
+        echo "    Enable verbosemode. More v's will increase verbosity. max 3 v's."
+        echo "      -vv, --verbose2 : verbosity level 2"
+        echo "      -vvv, --verbose3 : verbosity level 3"
         echo "  -a, --attributes <attributes>:"
         echo "    Set the attributes to print in the order they are passed."
         echo "    Possible args and the attributes they represent:"
@@ -228,6 +226,10 @@ ColorsPrintAllShellCombos () {
         echo "  -c, --colors <colors>: Set the colors to print in the order they are passed."
         echo "    Possible args and the colors they represent:"
         echo "      B: Black, r: Red, g: Green, y: Yellow, b: Blue, m: Magenta, c: Cyan, w: White, d: Default"
+        echo "  -s, --sort <sort>: Set the order of the fg, bg, and attribute in the file names."
+        echo "    Possible args and their meanings:"
+        echo "      f: fg color, b: bg color, a: attribute"
+        echo "  -f, --fzf: Use fzf to display the files."
         echo "  -h, --help: Print this help message"
         return 0
         ;;
@@ -242,6 +244,7 @@ ColorsPrintAllShellCombos () {
 
   _ve $verbosity 1 "Setting up environment for ColorsPrintAllShellCombos"
 
+
 ## set alias for ls to ensure color output ##
   _ve $verbosity 2 "Checking for existing ls alias"
   local lsAlias=$(alias ls | awk -F'=' '{print $2}' | tr -d "'")
@@ -249,10 +252,13 @@ ColorsPrintAllShellCombos () {
     _ve $verbosity 3 "Found ls alias: $lsAlias. Saving it to restore later"
     _ve $verbosity 3 "Removing ls alias for the duration of the test"
     unalias ls
+    _ve $verbosity 3 "Removed ls alias"
+    _ve $verbosity 3 "ls alias: $(alias ls)"
   fi
-  _ve $verbosity 3 "No ls alias found"
   _ve $verbosity 2 "Creating ls alias for color test"
-  alias ls='ls --color=always'
+  alias ls='/usr/bin/ls --color=always'
+  _ve $verbosity 3 "Created ls alias for color test"
+  _ve $verbosity 3 "ls alias: $(alias ls)"
 
 
   ## Create tmp dir for files ##
@@ -264,32 +270,62 @@ ColorsPrintAllShellCombos () {
   fi
   _ve $verbosity 2 "Created tmp dir at $tmpDir"
 
+
   ## Create file names for PrintAllShellCombos ##
   _ve $verbosity 2 "Creating file names for color test"
   local fileNames=()
   _ve $verbosity 3 "starting fgColor loop"
+  local fg_i=1
   for fgColorLetter in $colorsOrder; do
+    #fileNames+=("${fg_i}_${colors[$fgColorLetter]}.FG-Color")
     _ve $verbosity 3 "starting bgColor loop"
+    local bg_i=1
     for bgColorLetter in $colorsOrder; do
+      #fileNames+=("${fg_i}${bg_i}_${colors[$bgColorLetter]}.BG-Color")
       _ve $verbosity 3 "starting attribute loop"
+      local attr_i=1
       for attrLetter in $attributesOrder; do
-  #for attrLetter in $attributesOrder; do
-    #for bgColorLetter in $colorsOrder; do
-      #for fgColorLetter in $colorsOrder; do
+        #fileNames+=("${fg_i}${bg_i}${attr_i}_${attributes[$attrLetter]}.Attribute")
+        # set numberCoder by sortOrder f:fg_i b:bg_i a:attr_i
+        local numberCode=""
+        for s in $sortOrder; do
+          case $s in
+            f)
+              numberCode+=$fg_i
+              ;;
+            b)
+              numberCode+=$bg_i
+              ;;
+            a)
+              numberCode+=$attr_i
+              ;;
+          esac
+        done
         local fgColor=${colors[$fgColorLetter]}
         _ve $verbosity 3 "fgColor: $fgColor"
         local bgColor=${colors[$bgColorLetter]}
         _ve $verbosity 3 "bgColor: $bgColor"
         local attrName=${attributes[$attrLetter]}
         _ve $verbosity 3 "attrName: $attrName"
-        local newFile="${fgColor}On${bgColor}_${attrName}.${fgColorLetter}${bgColorLetter}${attrLetter}"
+        local newFile="${numberCode}_${fgColor}On${bgColor}_${attrName}.${fgColorLetter}${bgColorLetter}${attrLetter}"
         _ve $verbosity 3 "newFile: $newFile"
         fileNames=($fileNames $newFile)
-        #_ve $verbosity 3 "fileNames: $fileNames"
+        _ve $verbosity 3 "fileNames: $fileNames"
+        _ve $verbosity 3 "numberCode: $numberCode"
+        _ve $verbosity 3 "incrementing attr_i"
+        attr_i=$((attr_i + 1))
+        _ve $verbosity 3 "attr_i: $attr_i"
       done
+      _ve $verbosity 3 "incrementing bg_i"
+      bg_i=$((bg_i + 1))
+      _ve $verbosity 3 "bg_i: $bg_i"
     done
+    _ve $verbosity 3 "incrementing fg_i"
+    fg_i=$((fg_i + 1))
+    _ve $verbosity 3 "fg_i: $fg_i"
   done
   _ve $verbosity 2 "Created file names for color test"
+
 
   ## Create files ##
   _ve $verbosity 2 "Creating files in $tmpDir from generated file names"
@@ -298,6 +334,7 @@ ColorsPrintAllShellCombos () {
     touch $tmpDir/$name
   done
   _ve $verbosity 2 "Created files in $tmpDir"
+
 
   ## Backup LS_COLORS ##
   _ve $verbosity 2 "Creating backup of current LS_COLORS at $tmpDir/.original_dircolors"
@@ -309,6 +346,7 @@ ColorsPrintAllShellCombos () {
   echo $original_LS_COLORS > $original_LS_COLORS_FILE
   _ve $verbosity 2 "Created backup of current LS_COLORS"
 
+
   ## Create dircolors file ##
   _ve $verbosity 3 "dircolorsFile: $tmpDir/.dircolorsFile"
   local dircolorsFile=$tmpDir/.dircolorsFile
@@ -316,6 +354,15 @@ ColorsPrintAllShellCombos () {
   touch $dircolorsFile
   [[ $? -ne 0 ]] && return 1
   _ve $verbosity 2 "Created file to load with dircolors"
+
+
+  ## add extensions for headers ##
+  _ve $verbosity 2 "Adding headers to dircolors file"
+  echo "# Created by ColorsPrintAllShellCombos" >> $dircolorsFile
+  echo "*.FG-Color 30;42;01;04" >> $dircolorsFile
+  echo "*.BG-Color 30;44;01;04" >> $dircolorsFile
+  echo "*.Attribute 30;47;01;04" >> $dircolorsFile
+
 
   ## map color and attribute flags to color codes ##
   local -A textColors=(
@@ -330,10 +377,15 @@ ColorsPrintAllShellCombos () {
     [n]=00 [B]=01 [u]=04 [b]=05 [r]=07 [c]=08
   )
   _ve $verbosity 3 "attributes: $attributes"
-  
+ 
+
   ## Convert file name extensions to color codes ##
   _ve $verbosity 2 "Converting file names to color codes and writing to $dircolorsFile"
   for name in $fileNames; do
+    # skip the headers
+    if [[ $name == *.FG-Color || $name == *.BG-Color || $name == *.Attribute ]]; then
+      continue
+    fi
     # get the extension of the file
     local ext=$(echo $name | awk -F '.' '{print $2}' )
     _ve $verbosity 3 "ext: $ext"
@@ -352,23 +404,25 @@ ColorsPrintAllShellCombos () {
     echo "*.$ext $ColorCode" >> $dircolorsFile
   done
   _ve $verbosity 2 "Wrote color codes to $dircolorsFile"
+  
  
   ## set LS_COLORS with dircolors and dircolors file ##
   _ve $verbosity 2 "Setting LS_COLORS with dircolors and $dircolorsFile"
   eval $(dircolors -b $dircolorsFile)
   _ve $verbosity 2 "Set LS_COLORS with dircolors and $dircolorsFile"
+  _ve $verbosity 3 "LS_COLORS: $LS_COLORS"
 
   ## Display files with colored output ##
   _ve $verbosity 1 "Finished setting up environment for ColorsPrintAllShellCombos"
   _ve $verbosity 1 "Displaying files with colored output"
+  _ve $verbosity 3 "checking ls alias"
   if [[ $fzfDisplay -eq 0 ]]; then
     _ve $verbosity 2 "Displaying files with colored output"
-    ls $tmpDir
+    eval ls $tmpDir
   else
     _ve $verbosity 2 "Displaying files with fzf interface"
-    eval ls $tmpDir | fzf --ansi --reverse 
+    eval ls $tmpDir | fzf --ansi --reverse --multi --marker="🗹" --pointer="➢" --color="dark,bg+:-1:regular,fg+:-1:regular,marker:green"
   fi
-
 
 
   ## Cleanup ##
@@ -395,3 +449,40 @@ ColorsPrintAllShellCombos () {
   return 0
 } 
 autoload -Uz ColorsPrintAllShellCombos
+
+
+
+_verbosityCheck () {
+# fn:_verbosityCheck int:verbosityLevel int:levelRequired -> int:0|1 => 0 meets requirements, 1 does not
+  # ex: _verbosityCheck 2 1 -> 0  :  _verbosityCheck 2 1 && echo "this will print"
+  # ex: _verbosityCheck 1 2 -> 1  :  _verbosityCheck 1 2 && echo "this will not print"
+  
+  local verbose=$1
+  local levelCheck=$2
+
+  if [[ $verbose -ge $levelCheck ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+_vc=_verbosityCheck # alias for _verbosityCheck
+
+_verboseEcho () {
+# fn:_verboseEcho int:verbosityLevel int:levelRequired string:message -> void => echo message if verbosityLevel meets levelRequired
+  # ex: _verboseEcho 2 1 "this will print" -> "this will print"
+  # ex: _verboseEcho 1 2 "this will not print" -> 
+  # ex: _verboseEcho 2 2 "var: $var" -> "var: value of var"
+
+  local verbosity=$1
+  local levelCheck=$2
+  
+  if _verbosityCheck $verbosity $levelCheck; then
+    shift 2
+    echo $@
+  fi
+}
+_ve () {
+  _verboseEcho $@
+}
+
